@@ -30,7 +30,8 @@ static void Await(const std::string& path)
 static void MediumIdentity()
 {
     HANDLE original = nullptr, restricted = nullptr;
-    Require(OpenProcessToken(GetCurrentProcess(), TOKEN_DUPLICATE | TOKEN_QUERY, &original) != 0, "process token");
+    Require(OpenProcessToken(GetCurrentProcess(), TOKEN_DUPLICATE | TOKEN_QUERY | TOKEN_ADJUST_DEFAULT,
+                             &original) != 0, "process token");
     BYTE sid[SECURITY_MAX_SID_SIZE]; DWORD size = sizeof(sid);
     Require(CreateWellKnownSid(WinBuiltinAdministratorsSid, nullptr, sid, &size) != 0, "admin SID");
     SID_AND_ATTRIBUTES deny = {sid, 0};

@@ -41,3 +41,25 @@ compiled tests to reject each version. A compilation failure does not count as
 detecting a regression. Generated binaries and mutant sources stay under build/.
 The test harness only models one bus-name entry in the static handle counter;
 it is not a test of the pre-existing multi-bus lifetime management.
+
+Hosted native validation
+------------------------
+.github/workflows/windows-smbus.yml adds two independent Windows 2022 jobs:
+- complete OpenRGB build with MSVC, Windows SDK and Qt 6.8.3; OpenRGB.exe is
+  uploaded as a build-only artifact and is NEVER executed;
+- offline tests plus native.cpp compiled against the real Windows SDK.
+
+run_native.ps1 is guarded to GitHub-hosted runners. Each scenario uses a fresh
+Global\OpenRGB.MutexTests.<GUID>, never Access_SMBUS.HTP.Method. Temporary SYSTEM
+scheduled tasks and separate runner-user processes exercise both creation orders.
+The desktop worker impersonates its own restricted medium-integrity token with
+Administrators membership disabled; it verifies both restrictions before testing.
+The test uses actual Windows ACL checks, not a mocked user identity. It does not
+launch FanControl or G.Skill, install a service/driver, or enumerate hardware.
+
+Native scenarios: SYSTEM-first and desktop-first access; contention/timeout in
+both directions; restrictive existing ACL with reduced-rights fallback and denied
+ordinary access; abandoned owner followed by acquisition and proper release.
+Created tasks are removed in finally; workers have bounded lifetimes. Evidence
+files are uploaded even if the job fails. CI results, not source presence, determine
+which checks have actually passed. This remains distinct from hardware validation.
