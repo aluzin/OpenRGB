@@ -53,9 +53,13 @@ Boundaries and deployment
 
 Validation
 ----------
-See tests/smbus_mutex/README.txt for offline tests. The full Qt application and
-real service/FanControl/G.Skill interaction still need separate validation.
-Do not describe successful stub tests as hardware validation.
+See tests/smbus_mutex/README.txt for offline and hosted native tests. The Windows
+workflow builds the complete Qt application without running it and tests actual
+cross-process Windows mutex access under SYSTEM and a restricted desktop token.
+Native tests use unique test names, never the production SMBus mutex name.
+CI run results determine which checks have passed. Actual OpenRGB service,
+FanControl and G.Skill coexistence still needs separate validation on hardware.
+Do not describe successful stub/native tests or a build as hardware validation.
 
 Primary references
 ------------------
@@ -63,12 +67,12 @@ https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createm
 https://learn.microsoft.com/en-us/windows/win32/sync/synchronization-object-security-and-access-rights
 https://learn.microsoft.com/en-us/windows/win32/secauthz/mandatory-integrity-control
 
-Proposed PR title
------------------
+Proposed upstream MR title
+--------------------------
 Fix Windows PawnIO shared SMBus mutex permissions and failed-wait handling
 
-Proposed PR description
------------------------
+Proposed upstream MR description
+--------------------------------
 When the Windows service creates the shared SMBus mutex first, its default ACL
 can prevent desktop lighting applications from opening the object. Create it
 with an explicit cross-user descriptor, and fall back to minimum locking rights
@@ -77,5 +81,9 @@ when an existing object denies full access.
 Fail transfers closed when creation or waiting fails, release acquired ownership
 through a scoped guard, and initialize the handle for the shared-access opt-out.
 Use the same policy for PIIX4 port selection. Add offline regression and mutation
-tests with mocked Windows/PawnIO dependencies. Full application and live
-service/client validation remain outstanding; no hardware test has been run.
+tests with mocked Windows/PawnIO dependencies, isolated real Win32 cross-process
+tests and a complete Windows SDK/Qt build workflow. Actual service/client
+coexistence and hardware validation remain outstanding.
+
+Upstream accepts merge requests at https://gitlab.com/CalcProgrammer1/OpenRGB/;
+the GitHub repository is a mirror. This document does not submit an upstream MR.
