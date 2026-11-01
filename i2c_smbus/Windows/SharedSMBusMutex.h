@@ -5,7 +5,7 @@
 #include <sddl.h>
 
 // This name is shared with other hardware-monitoring and lighting applications.
-inline HANDLE CreateSharedSMBusMutex()
+inline HANDLE CreateSharedSMBusMutex(const char* name = "Global\\Access_SMBUS.HTP.Method")
 {
     PSECURITY_DESCRIPTOR descriptor = nullptr;
     // Vendor clients use CreateMutex (MUTEX_ALL_ACCESS), not just OpenMutex
@@ -21,7 +21,7 @@ inline HANDLE CreateSharedSMBusMutex()
     }
 
     SECURITY_ATTRIBUTES attributes = {sizeof(SECURITY_ATTRIBUTES), descriptor, FALSE};
-    HANDLE handle = CreateMutexA(&attributes, FALSE, "Global\\Access_SMBUS.HTP.Method");
+    HANDLE handle = CreateMutexA(&attributes, FALSE, name);
     DWORD error = GetLastError();
     LocalFree(descriptor);
 
@@ -29,8 +29,7 @@ inline HANDLE CreateSharedSMBusMutex()
     // else's ACL; try only the rights needed to participate in locking.
     if(handle == nullptr && error == ERROR_ACCESS_DENIED)
     {
-        handle = OpenMutexA(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE,
-                            "Global\\Access_SMBUS.HTP.Method");
+        handle = OpenMutexA(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE, name);
         error = GetLastError();
     }
     SetLastError(error);

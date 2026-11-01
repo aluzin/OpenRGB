@@ -1,0 +1,71 @@
+name: Windows SMBus validation
+on:
+  push:
+    branches: [fix/windows-smbus-mutex]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-smbus-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutex-tests:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline tests and native Windows SDK build
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 exit /b 1
+          python tests/smbus_mutex/run_tests.py --cl cl.exe --mutations
+          if errorlevel 1 exit /b 1
+          powershell -NoProfile -File tests/smbus_mutex/test_acl.ps1
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /WX tests/smbus_mutex/native.cpp /Fotests/smbus_mutex/build/native.obj /Fetests/smbus_mutex/build/native.exe /link advapi32.lib
+          if errorlevel 1 exit /b 1
+      - name: Isolated real Windows mutex tests
+        shell: pwsh
+        run: ./tests/smbus_mutex/run_native.ps1
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutex-test-results
+          path: tests/smbus_mutex/build/native-results-*/
+          if-no-files-found: ignore
+
+  full-build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qt5compat
+          tools: tools_jom
+          cache: true
+      - name: Build complete OpenRGB without running it
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 exit /b 1
+          qmake OpenRGB.pro CONFIG-=debug_and_release CONFIG+=release
+          if errorlevel 1 exit /b 1
+          jom -j 4
+          if errorlevel 1 exit /b 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenRGB-windows-build-only
+          path: release/OpenRGB.exe
+          if-no-files-found: error
