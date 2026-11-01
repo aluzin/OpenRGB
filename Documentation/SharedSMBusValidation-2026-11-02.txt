@@ -1,0 +1,64 @@
+Shared SMBus validation checkpoint - 2026-11-02
+================================================
+
+Tested application commit: bf05e2176baf7c013611b4d0840db3d995e68433
+Windows build: https://github.com/aluzin/OpenRGB/actions/runs/41355023403
+
+Completed
+---------
+- Offline regression/mutation checks and hosted native Windows mutex tests.
+  Hosted coverage includes SYSTEM/restricted-user creation order, contention,
+  timeout, access fallback, abandoned ownership and release.
+- Full Windows application build.
+- Local probe using the verbatim production transfer body and actual shared
+  Windows mutex alongside running FanControl. PawnIO transport was MOCKED.
+  Success/data unpack, transport error/release, missing mutex, and a real
+  handle lacking SYNCHRONIZE passed. This was not peripheral hardware I/O.
+- Elevated trial OpenRGB successfully initialized PawnIO SmbusI801.bin and
+  registered Intel controller 8086:7F23, subsystem 1043:88EF alongside FanControl.
+  No shared-mutex-open error was reported; detector execution completed.
+
+Trial isolation
+---------------
+Separate application/configuration directory; only ASUS Aura Motherboard
+USB detector enabled. RAM, generic SMBus and GPU RGB detectors disabled.
+Only SmbusI801.bin present among PawnIO modules.
+Installed OpenRGB service remained stopped/manual; FanControl was not restarted.
+Successful controller initialization is NOT a physical peripheral transfer test.
+
+Non-RAM target research
+----------------------
+Board: ASUS TUF Gaming Z890-Pro WiFi.
+No sufficiently documented safe non-RAM endpoint was identified. This does not
+establish absence of such devices. Need board-specific bus/address mapping and
+a documented safe register/protocol before considering a transaction.
+
+ASUS lighting uses USB, which cannot exercise Intel SMBus transfers.
+LibreHardwareMonitor's Nuvoton monitoring path uses LPC; chip identification
+does not establish its SMBus wiring/address on this board.
+Linux nct6775-i2c is not evidence of an endpoint on this exact board; its read
+path can write a bank selector. Generic read-only support is insufficient.
+The ASUS manual did not supply a usable peripheral address/register map.
+No bus scan or RAM access was performed during this research.
+
+Remaining
+---------
+- Actual physical SMBus peripheral transfers alongside FanControl.
+- Local service-created mutex ACL lifecycle; hosted coverage exists but does
+  not replace validation of the installed service/client lifecycle.
+- G.Skill coexistence and RAM/GPU support are separate work, not validated.
+- Cause of previously reported whole-machine freezes remains unproven.
+  These results do not establish that the patch fixes freezes.
+
+Resume by reading this checkpoint and inspecting saved configuration/logs.
+Do not scan, guess addresses, use DIMM/SPD as a substitute, or restart services
+to expand coverage without explicit authorization. RAM remains out of scope.
+If a safe target cannot be documented, retain this explicit coverage limit.
+
+Primary references
+------------------
+https://dlcdnets.asus.com/pub/ASUS/mb/LGA1851/TUF_GAMING_Z890-PRO_WIFI/E24158_TUF_GAMING_Z890-PRO_WIFI_EM_WEB.pdf
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/Nct677X.cs
+https://github.com/torvalds/linux/blob/master/drivers/hwmon/nct6775-i2c.c
+https://github.com/namazso/PawnIO.Modules/blob/0.2.11/SmbusI801.p
