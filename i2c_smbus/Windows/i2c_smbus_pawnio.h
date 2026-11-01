@@ -19,8 +19,6 @@
 
 #include "i2c_smbus.h"
 
-#define GLOBAL_SMBUS_MUTEX_NAME "Global\\Access_SMBUS.HTP.Method"
-
 enum
 {
     PAWNIO_SLEEPMODE_ALWAYSBUSY     = 0,
@@ -44,7 +42,8 @@ private:
     s32 i2c_smbus_xfer(u8 addr, char read_write, u8 command, int size, i2c_smbus_data* data);
     s32 i2c_xfer(u8 addr, char read_write, int* size, u8* data);
 
-    HANDLE      global_smbus_access_handle;
+    HANDLE      global_smbus_access_handle = nullptr;
+    bool        shared_smbus_access = true;
     std::string name;
     HANDLE      handle;
 };

@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#pragma once
+namespace std {
+template<class K, class V> struct unordered_map {
+    V value = {};
+    V& operator[](const K&) { return value; }
+};
+}

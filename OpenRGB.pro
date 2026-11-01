@@ -379,6 +379,7 @@ win32:HEADERS +=                                                                
     dependencies/PawnIO/PawnIOLib.h                                                             \
     i2c_smbus/Windows/i2c_smbus_amdadl.h                                                        \
     i2c_smbus/Windows/i2c_smbus_nvapi.h                                                         \
+    i2c_smbus/Windows/SharedSMBusMutex.h                                                        \
     i2c_smbus/Windows/i2c_smbus_pawnio.h                                                        \
     wmi/wmi.h                                                                                   \
     AutoStart/AutoStart-Windows.h                                                               \
@@ -390,6 +391,7 @@ win32:contains(QMAKE_TARGET.arch, x86_64) {
         super_io/super_io_pawnio.cpp                                                            \
 
     LIBS +=                                                                                     \
+        -ladvapi32                                                                              \
         -lws2_32                                                                                \
         -liphlpapi                                                                              \
         -L"$$PWD/dependencies/libusb-1.0.27/VS2019/MS64/dll" -llibusb-1.0                       \

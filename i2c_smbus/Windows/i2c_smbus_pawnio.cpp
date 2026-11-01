@@ -12,6 +12,7 @@
 #include <string>
 #include "DetectionManager.h"
 #include "i2c_smbus_pawnio.h"
+#include "SharedSMBusMutex.h"
 #include "LogManager.h"
 #include "PawnIOLib.h"
 #include "ResourceManager.h"
@@ -49,21 +50,21 @@ s32 piix4_port_sel(HANDLE pawnio_handle, s32 port)
     /*-----------------------------------------------------*\
     | Execute PIIX4 port_sel ioctl                          |
     \*-----------------------------------------------------*/
-    HANDLE access_handle = CreateMutexA(NULL, FALSE, GLOBAL_SMBUS_MUTEX_NAME);
+    HANDLE access_handle = CreateSharedSMBusMutex();
     if(access_handle == NULL)
     {
         return -EIO;
     }
-    DWORD wait_status = WaitForSingleObject(access_handle, INFINITE);
-    if(wait_status != WAIT_OBJECT_0 && wait_status != WAIT_ABANDONED)
     {
-        CloseHandle(access_handle);
-        return -EIO;
+        SharedSMBusLock lock(access_handle, true);
+        if(!lock.Ready())
+        {
+            CloseHandle(access_handle);
+            return -EIO;
+        }
+
+        status = pawnio_execute(pawnio_handle, "ioctl_piix4_port_sel", in, in_size, out, 1, &return_size);
     }
-
-    status = pawnio_execute(pawnio_handle, "ioctl_piix4_port_sel", in, in_size, out, 1, &return_size);
-
-    ReleaseMutex(access_handle);
     CloseHandle(access_handle);
 
     return(status ? -EIO : 0);
@@ -136,8 +137,6 @@ i2c_smbus_pawnio::i2c_smbus_pawnio(HANDLE handle, std::string name, unsigned int
     /*-----------------------------------------------------*\
     | Get shared SMBus access setting                       |
     \*-----------------------------------------------------*/
-    bool shared_smbus_access = true;
-
     if(drivers_settings.contains("shared_smbus_access"))
     {
         shared_smbus_access = drivers_settings["shared_smbus_access"].get<bool>();
@@ -168,7 +167,11 @@ i2c_smbus_pawnio::i2c_smbus_pawnio(HANDLE handle, std::string name, unsigned int
     \*-----------------------------------------------------*/
     if(shared_smbus_access)
     {
-        global_smbus_access_handle = CreateMutexA(NULL, FALSE, GLOBAL_SMBUS_MUTEX_NAME);
+        global_smbus_access_handle = CreateSharedSMBusMutex();
+        if(global_smbus_access_handle == nullptr)
+        {
+            LOG_ERROR("[PawnIO] Cannot open shared SMBus mutex (error=%lu); transfers disabled", GetLastError());
+        }
     }
 
     using_handle[name]++;
@@ -198,9 +201,11 @@ s32 i2c_smbus_pawnio::i2c_smbus_xfer(u8 addr, char read_write, u8 command, int s
     /*-----------------------------------------------------*\
     | Lock SMBus mutex                                      |
     \*-----------------------------------------------------*/
-    if(global_smbus_access_handle != NULL)
+    SharedSMBusLock lock(global_smbus_access_handle, shared_smbus_access);
+    if(!lock.Ready())
     {
-        WaitForSingleObject(global_smbus_access_handle, INFINITE);
+        LOG_ERROR("[PawnIO] Cannot acquire shared SMBus mutex; transfer skipped");
+        return -EIO;
     }
 
     /*-----------------------------------------------------*\
@@ -234,14 +239,6 @@ s32 i2c_smbus_pawnio::i2c_smbus_xfer(u8 addr, char read_write, u8 command, int s
     if(data != NULL)
     {
         memcpy( data, &out[0], sizeof(i2c_smbus_data));
-    }
-
-    /*-----------------------------------------------------*\
-    | Unlock SMBus mutex                                    |
-    \*-----------------------------------------------------*/
-    if(global_smbus_access_handle != NULL)
-    {
-        ReleaseMutex(global_smbus_access_handle);
     }
 
     /*-----------------------------------------------------*\

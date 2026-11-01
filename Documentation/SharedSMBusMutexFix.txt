@@ -1,0 +1,81 @@
+Windows PawnIO shared SMBus mutex fix
+====================================
+
+Baseline: OpenRGB 8e16de27858cf2be6af54a33ce003df74cb9fd3e (version 1.1).
+
+Problem
+-------
+CreateMutexA(NULL, ...) gives a new object the creator's default security
+descriptor. When a service creates Global\Access_SMBUS.HTP.Method first,
+desktop lighting clients requesting MUTEX_ALL_ACCESS can be denied. Another
+application can retain a handle to the old object even after OpenRGB exits.
+
+Independently, the PawnIO transfer path ignored WaitForSingleObject's result
+and proceeded without ownership on failure. Failure to create the mutex also
+silently disabled synchronization. Explicit shared-access opt-out left the
+handle uninitialized in the constructor.
+
+Change
+------
+Both PawnIO mutex creation sites use an explicit DACL granting full access
+to SYSTEM, Administrators and Authenticated Users, plus medium integrity.
+Full mutex access is needed for clients that use CreateMutex rather than
+OpenMutex with a reduced access mask. It grants no hardware/driver permission.
+The tradeoff is that authenticated local users can change this coordination
+object's DACL; a hostile local participant can deny service. This is not an
+authorization boundary and must not be used as one. Anonymous/low-integrity
+clients are not part of the supported compatibility policy.
+
+On ERROR_ACCESS_DENIED, OpenRGB tries opening the existing object with just
+SYNCHRONIZE | MUTEX_MODIFY_STATE. It does not overwrite someone else's ACL or
+change the global name. If that also fails, shared-mode transfers fail closed.
+
+Ownership is scoped; both successful and abandoned waits acquire ownership.
+Timeout (3000 ms), WAIT_FAILED and unexpected results block the transfer.
+The temporary port-selection handle closes after releasing ownership.
+An explicitly disabled shared_smbus_access option remains supported, with a
+null-initialized handle. No live settings or services are changed by this patch.
+
+Boundaries and deployment
+-------------------------
+- Existing restrictive objects are not repaired in place. All holders must
+  eventually close their handles before the new creation ACL takes effect.
+- Third-party applications can still create restrictive objects first. This
+  patch cannot guarantee their compatibility or fix their synchronization.
+- The timeout bounds a single wait, not the total duration of device detection.
+- Locking remains per SMBus transaction. This patch does not make multi-call
+  ENE register-select/read/write sequences atomic across applications, recover
+  hardware state after an abandoned owner, or change driver-internal locking.
+- Identity/configuration IOCTLs and pre-existing IMC selection code are outside
+  this transfer-lock fix. This is not a claim that all PawnIO calls are guarded.
+- No memory/GPU support or device detector is added. No evidence establishes
+  this defect as the cause of whole-machine black-screen freezes.
+
+Validation
+----------
+See tests/smbus_mutex/README.txt for offline tests. The full Qt application and
+real service/FanControl/G.Skill interaction still need separate validation.
+Do not describe successful stub tests as hardware validation.
+
+Primary references
+------------------
+https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createmutexa
+https://learn.microsoft.com/en-us/windows/win32/sync/synchronization-object-security-and-access-rights
+https://learn.microsoft.com/en-us/windows/win32/secauthz/mandatory-integrity-control
+
+Proposed PR title
+-----------------
+Fix Windows PawnIO shared SMBus mutex permissions and failed-wait handling
+
+Proposed PR description
+-----------------------
+When the Windows service creates the shared SMBus mutex first, its default ACL
+can prevent desktop lighting applications from opening the object. Create it
+with an explicit cross-user descriptor, and fall back to minimum locking rights
+when an existing object denies full access.
+
+Fail transfers closed when creation or waiting fails, release acquired ownership
+through a scoped guard, and initialize the handle for the shared-access opt-out.
+Use the same policy for PIIX4 port selection. Add offline regression and mutation
+tests with mocked Windows/PawnIO dependencies. Full application and live
+service/client validation remain outstanding; no hardware test has been run.

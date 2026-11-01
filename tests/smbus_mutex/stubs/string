@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#pragma once
+// Minimal stand-in for the bus name; no allocator or C++ runtime dependency.
+namespace std { struct string { string(const char* = "") {} }; }
