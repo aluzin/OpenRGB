@@ -62,3 +62,38 @@ https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LibreHa
 https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/Nct677X.cs
 https://github.com/torvalds/linux/blob/master/drivers/hwmon/nct6775-i2c.c
 https://github.com/namazso/PawnIO.Modules/blob/0.2.11/SmbusI801.p
+
+Evening follow-up: native local synchronization tests
+----------------------------------------------------
+Running FanControl remained the same responsive process before and after tests.
+OpenRGB was not running; no applications or services were started/restarted.
+Only short-lived test processes were launched. No driver calls or bus scans.
+
+The actual production SharedSMBusMutex.h was compiled into a small native DLL
+with an enforced Global\\OpenRGB.LocalValidation.<32 hex digits> name whitelist.
+The isolated harness rejects the production mutex name.
+Two ordinary-user processes exercised real Windows mutexes:
+- competing owner causes the production guard to time out (observed 3004 ms);
+- owner release permits subsequent acquisition;
+- owner process exit while holding the test mutex permits abandoned acquisition;
+- guard destruction releases ownership, verified by a failed extra release;
+- a real handle without SYNCHRONIZE makes the guard fail closed;
+- isolated objects cease to exist after all handles close.
+All checks passed. No persistent worker or scheduled task was created.
+Static validation of the production SDDL also passed.
+
+A rebuilt probe of the verbatim production transfer body also passed against
+the existing production shared mutex with running FanControl (exit 0).
+Transport remained a local stub. The existing mutex was pinned by OpenMutex;
+the probe refuses to proceed if absent or initially abandoned.
+Imports were audited: synchronization/security and NtQueryMutant only, no
+device/PawnIO API. No contention or abandonment injected into the real object.
+
+Production transfer-body SHA256:
+51288976d7edd7975989a0e3c0a51c1ce8f4d2d417b3459c1beaead492c42229
+Production helper SHA256:
+41f636e65c1f0ca8c3f2a617b7fa8cf590b81dcc801004bb6c35211291e44f23
+
+Limits remain: local SYSTEM-created ACL lifecycle was NOT tested; the local
+execution token was nonadministrative. Hosted SYSTEM tests remain separate
+evidence. Actual physical SMBus transfers and freeze causality remain unproven.
