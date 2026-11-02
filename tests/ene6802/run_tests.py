@@ -59,7 +59,7 @@ if args.mutations:
         'wrong_color_bank': ('Write(0x8160, payload, 24)', 'Write(0xE300, payload, 24)'),
         'wrong_brightness': ('brightness = 9', 'brightness = 0'),
         'wrong_chip': ('!= 0x0268', '!= 0x6802'),
-        'firmware_gate_removed': ('if(firmware[i] != expected_firmware[i])', 'if(false && firmware[i] != expected_firmware[i])'),
+        'firmware_gate_removed': ('if(firmware[i] != expected_firmware[i]) return false;', 'if(firmware[i] != expected_firmware[i]) continue;'),
         'ignore_commit_error': ('Write(0x802F, &apply, 1);', '(Write(0x802F, &apply, 1), true);'),
         'no_failure_latch': ('if(!success) identified = false;', 'if(!success) identified = true;'),
         'green_blue_swap': ('(colors[i] >> 16)', '(colors[i] >> 8)'),
