@@ -5,7 +5,7 @@
 #include "i2c_smbus.h"
 #include "SharedSMBusMutex.h"
 
-class ENE6802Transport_Windows : public ENE6802Transport
+class ENE6802Transport_Windows final : public ENE6802Transport
 {
 public:
     explicit ENE6802Transport_Windows(i2c_smbus_interface* bus);
