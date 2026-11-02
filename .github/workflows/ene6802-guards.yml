@@ -1,0 +1,24 @@
+name: ENE6802 detector and UI guard tests
+on:
+  push:
+    branches: [feat/ene6802-ddr5]
+    paths:
+      - 'Controllers/ENE6802Controller/**'
+      - 'tests/ene6802/**'
+      - '.github/workflows/ene6802-guards.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Actual detector and UI wrapper, fake OS and bus, ASan and UBSan
+        run: python3 tests/ene6802/integration/run.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ENE6802-guard-evidence
+          path: tests/ene6802/integration/build/result.json
+          if-no-files-found: error

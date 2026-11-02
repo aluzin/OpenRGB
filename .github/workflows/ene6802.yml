@@ -2,6 +2,15 @@ name: ENE6802 offline validation
 on:
   push:
     branches: [feat/ene6802-ddr5]
+    paths:
+      - 'Controllers/ENE6802Controller/**'
+      - 'i2c_smbus/**'
+      - 'OpenRGB.pro'
+      - 'tests/ene6802/test.cpp'
+      - 'tests/ene6802/adapter.cpp'
+      - 'tests/ene6802/run_tests.py'
+      - 'tests/ene6802/stubs/**'
+      - '.github/workflows/ene6802.yml'
   workflow_dispatch:
 permissions:
   contents: read
