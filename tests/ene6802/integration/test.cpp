@@ -246,6 +246,28 @@ static void DeviceIntegration()
     unsigned int before=(unsigned int)bus.trace.size(); Dispose(devices);
     Check(bus.trace.size() == before); // Destruction must not send off/reset/save.
 }
+static void ShutdownOrdering()
+{
+    scenario="in-flight callback completes before backend destruction"; cases++;
+    Bus bus; std::vector<i2c_smbus_interface*> buses={&bus};
+    json settings=Valid(); settings["ENE6802Devices"]["devices"]=json::array({Entry(0x71)});
+    ResourceManager::get()->settings.sections=settings;
+    DetectedControllers devices=DetectENE6802Controllers(buses);
+    Check(devices.size() == 1);
+    for(RGBColor& color : devices[0]->colors) color=ToRGBColor(0,255,0);
+    bus.Clear();
+    unsigned int closed_before=closes, callbacks=0;
+    RGBController::shutdown_hook=[&](RGBController* device)
+    {
+        Check(closes == closed_before); // Transport is still alive while joining.
+        callbacks++;
+        device->DeviceUpdateLEDs(); // Actual production callback, fake bus only.
+        AssertFrame(bus,0x71,0,255,0);
+    };
+    Dispose(devices);
+    RGBController::shutdown_hook={};
+    Check(callbacks == 1 && closes == closed_before + 1 && depth == 0);
+}
 static void FailureCleanup()
 {
     for(int bad : {0x71,0x73})
@@ -290,6 +312,6 @@ static void SpdGate()
 }
 int main()
 {
-    ConfigurationGuards(); DeviceIntegration(); FailureCleanup(); SpdGate();
+    ConfigurationGuards(); DeviceIntegration(); ShutdownOrdering(); FailureCleanup(); SpdGate();
     std::printf("PASS: %u configuration/scenario cases, %u assertions; fake OS/bus only\n",cases,checks);
 }

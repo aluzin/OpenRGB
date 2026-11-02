@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include "RGBControllerInterface.h"
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
 // Real OpenRGB mode/zone/LED/color types; only the UI/base-class services are fake.
 class RGBController
 {
@@ -12,7 +15,19 @@ public:
     std::vector<zone> zones;
     std::vector<led> leds;
     std::vector<RGBColor> colors;
-    virtual ~RGBController() = default;
+    inline static std::function<void(RGBController*)> shutdown_hook;
+    bool shutdown_called = false;
+    virtual ~RGBController()
+    {
+        if(!shutdown_called) { std::fprintf(stderr, "FAIL: controller destroyed without Shutdown\n"); std::abort(); }
+    }
+    void Shutdown()
+    {
+        if(shutdown_called) { std::fprintf(stderr, "FAIL: duplicate Shutdown\n"); std::abort(); }
+        // Model an in-flight callback completing while Shutdown joins it.
+        if(shutdown_hook) shutdown_hook(this);
+        shutdown_called = true;
+    }
     virtual void DeviceUpdateLEDs() = 0;
     virtual void DeviceUpdateZoneLEDs(int) = 0;
     virtual void DeviceUpdateSingleLED(int) = 0;

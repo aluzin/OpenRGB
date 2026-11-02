@@ -72,5 +72,19 @@ for label, (old, new) in mutations.items():
     subprocess.run(flags + ['-c', str(mutant), '-o', str(obj)], check=True)
     execute(label, objects[:-1] + [str(obj)], False)
     report['mutations_rejected'].append(label)
+wrapper_original = (source / 'RGBController_ENE6802_Windows.cpp').read_text()
+assert wrapper_original.count('    Shutdown();') == 1
+for label, modified in {
+    'missing_shutdown': wrapper_original.replace('    Shutdown();', ''),
+    'shutdown_after_backend_delete': wrapper_original.replace('    Shutdown();', '').replace(
+        '    delete transport;', '    delete transport;\n    Shutdown();'),
+}.items():
+    mutant = build / (label + '.cpp')
+    mutant.write_text(modified)
+    obj = build / (label + '.o')
+    subprocess.run(flags + ['-c', str(mutant), '-o', str(obj)], check=True)
+    mutated_objects = [str(obj) if Path(p).stem == 'RGBController_ENE6802_Windows' else p for p in objects]
+    execute(label, mutated_objects, False)
+    report['mutations_rejected'].append(label)
 (build / 'result.json').write_text(json.dumps(report, indent=2))
 print(json.dumps(report, indent=2))

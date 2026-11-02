@@ -25,6 +25,8 @@ RGBController_ENE6802::RGBController_ENE6802(ENE6802Controller* controller, ENE6
 
 RGBController_ENE6802::~RGBController_ENE6802()
 {
+    // Join queued/in-flight device callbacks before destroying their backend.
+    Shutdown();
     delete controller;
     delete transport;
 }
