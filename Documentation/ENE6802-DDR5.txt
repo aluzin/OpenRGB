@@ -98,11 +98,30 @@ tests also passed. Protocol tests include14 identification failure positions,
 8 frame failure positions and8 compile-success mutations rejected by tests.
 Windows adapter tests use fake OS/bus functions, not a live FanControl session.
 Earlier real FanControl/shared-mutex results belong to the separate mutex work.
-Detector configuration guards and the RGB UI wrapper were compiled and reviewed;
-they are not covered by the isolated protocol/adapter runtime tests.
+This first run compiled/reviewed the detector and RGB UI wrapper. A later
+dedicated guard suite now covers them at runtime with fake hardware; see below.
 Build-only artifact13179118829 ZIP SHA256:
 71055e61dc78c2596b7384bafaacb0bf12c40f7bd5dcddf59d01223505fba80c.
 It is an executable build artifact, not a deployed or hardware-tested package.
+
+Guard follow-up2026-11-03:
+https://github.com/aluzin/OpenRGB/actions/runs/41531502673
+83 scenarios/1319 assertions, ASan/UBSan,7 detector mutations and5 configuration
+test groups PASSED at revisioneb5190958345b58847c4369bcb675340793e0b7e.
+The Windows transport is now final to make its concrete-type ownership explicit
+and warning-clean under GCC. Protocol behavior is unchanged. The exact real SPD
+gate function is also tested: all standard DIMM detectors off prevents that
+loop, while the manual ENE detector alone does not enable SPD enumeration.
+This does not run all of DetectionManager or Qt's scheduling. The concrete,
+staged hardware plan is Documentation/ENE6802-HARDWARE-TRIAL.txt; NOT executed.
+Full Windows build/protocol validation for production revisione355eacb also
+PASSED: https://github.com/aluzin/OpenRGB/actions/runs/41530904398
+Artifact13182418372 ZIP SHA256:
+c94aa525f11cd6add669b85949aaaab1ff23b86890d856b6fa3706be43df08fb.
+Extracted OpenRGB.exe SHA256:
+b70e3ba3d20355a52e143e0c13f738d5cc51a47f506a97a2d9881d2cbc4ad60c.
+The EXE was downloaded and parsed as a PE file only, never launched. Its trial
+runtime matches Qt6.8.3;16 PE files had no unresolved import-file dependencies.
 
 OpenRGB CONTRIBUTING.md restricts AI-generated submissions and expects human
 understanding/manual vetting. Do not submit this as an upstream-ready MR without

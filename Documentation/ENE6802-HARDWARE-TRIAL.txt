@@ -1,0 +1,130 @@
+ENE6802 two-module trial plan (prepared offline, NOT executed)
+============================================================
+
+Target and boundary
+-------------------
+ASUS TUF Gaming Z890-Pro WiFi: PawnIO SMBus i801 0,
+PCI8086:7F23, subsystem1043:88EF.
+Two historical ENE RGB addresses:7-bit71/73 (vendor log8-bitE2/E6).
+Each must independently match chip6802, firmwareEE D5 08 03 00,
+configuration[1,8,0,0,0],8LEDs. Historical addresses are not guaranteed to
+survive a firmware/address change: no match means STOP, not search/remap.
+
+The user authorized preparing this plan and offline tests only. Each hardware
+stage below requires explicit authorization before execution. Do not combine
+stages into an unattended script. No application/service restarts or reboot.
+Do not run G.Skill/Armoury components, change PIA, flash/SPD, or DIMM settings.
+
+Offline evidence
+----------------
+Actual detector/core/Windows adapter/RGB wrapper compile into an isolated test
+with fake OS and bus functions. Real OpenRGB JSON and mode/zone/color types.
+83 configuration/scenario cases,1319 assertions; ASan/UBSan passed.
+Seven detector mutations compiled and were caught; eight earlier protocol
+mutations also caught. Invalid late entries cause zero transfers to ALL entries.
+Tests cover unknown/ambiguous bus, PCI mismatch, backend mismatch, duplicate
+address, wrong types/ranges, missing opt-in, legacy detector enabled, mutex
+disabled/failed/abandoned, identity mismatch cleanup, invalid UI indices,
+construction/destruction without color writes, RGB packing and failure latch.
+The real IsAnyDimmDetectorEnabled function is compiled verbatim into tests;
+all normal DIMM detectors off plus the manual ENE detector on returns false.
+The full DetectionManager/UI thread scheduler is not run in these unit tests.
+Guard/configuration run: https://github.com/aluzin/OpenRGB/actions/runs/41531502673
+Windows build/protocol run: https://github.com/aluzin/OpenRGB/actions/runs/41530904398
+Production source:e355eacb8f0607b7badd0731aef4d4c4ebb76f86.
+Approved trial EXE SHA256:
+b70e3ba3d20355a52e143e0c13f738d5cc51a47f506a97a2d9881d2cbc4ad60c.
+No hardware execution occurred while downloading, extracting or checking it.
+
+Prepared layout
+---------------
+Standalone trial directory; installed application/configuration are untouched:
+  app/                  pinned OpenRGB.exe and matching Qt6.8.3 runtime
+  config/identify-both/  only addresses71 and73
+  config/module-71/      only address71
+  config/module-73/      only address73
+  config/manifest.json   configuration hashes and source hashes
+No startup/exit/resume/suspend profile, SDK connection/server, or plugins.
+Only the named ENE6802 detector is enabled. All1950 other known names are false.
+Only SmbusI801.bin is shipped; no other PawnIO modules in the trial folder.
+Existing PawnIO is used; no driver installation, upgrade or service restart.
+The OS/GPU bus-interface enumeration in normal OpenRGB still occurs, but
+disabled device detectors perform no endpoint scans/color writes. DIMM SPD
+enumeration is skipped by the tested IsAnyDimmDetectorEnabled gate.
+
+Preparation tool (file parsing/generation only):
+python tests/ene6802/prepare_trial.py --inventory SAVED_WINDOWS_OpenRGB.json --output TRIAL/config
+It refuses unresolved detector registrations and refuses to overwrite files.
+The QMK dynamic child detectors cannot be registered because both parent
+detectors are false and both manual device lists are empty.
+
+Preflight, before any hardware launch
+-----------------------------------
+1. Verify approved executable/runtime/config hashes. Use the exact matching
+   build, not a replacement downloaded later or another OpenRGB version.
+2. Verify FanControl is running and record its PID/start time. Keep it running
+   with its current configuration throughout; this is the compatibility test.
+3. Verify OpenRGB GUI/service and G.Skill Gaming/LightingService are inactive.
+   If anything is active, STOP and arrange normal closure with the user.
+   Do not stop services automatically. A loaded idle vendor driver alone is
+   not proof of active polling; do not uninstall/restart it for this test.
+4. Verify the trial directories contain no .orp profiles, plugins or active
+   device configuration. All other detectors, especially all7 standard DIMM
+   detectors and legacy ENE SMBus DRAM, must be explicitly false.
+5. Launch only from an elevated PowerShell if needed by existing PawnIO access.
+   Every command uses --config and --noautoconnect; no installed config/server.
+   Standard logs are in the selected config/logs directory. Keep terminal output.
+
+Stage1: identify both RGB controllers, no color change
+----------------------------------------------------
+From the trial directory, ONE command (shown on one line):
+& .\app\OpenRGB.exe --config .\config\identify-both --noautoconnect --loglevel 5 --list-devices
+
+Expected: exactly2 ENE6802 devices, locations with configured addresses113/115,
+version6802 / EE D5 08 03 00,8LEDs each,only Static. No color change.
+Each valid identification is14 SMBus transactions at that explicit RGB address:
+register-select writes plus identity/firmware/configuration reads. This is NOT
+a claim of a completely write-free bus operation. No color registers or SPD.
+--list-devices exits before CLI ApplyOptions, so it does not apply default black.
+If zero/one/more-than-two devices, unexpected version/count, mutex/I/O errors,
+unexpected color change, or FanControl problem: STOP. No rescan/fallback.
+The log heading 'Reading DRAM SPD Information' alone is not a transfer: it is
+set before the guarded loop. There must be no detected SPD-slot messages.
+Confirm the screen and FanControl remain responsive before requesting Stage2.
+
+Stage2: one solid red update to the first matched RGB address
+-----------------------------------------------------------
+Only after successful Stage1 and authorization for color writes:
+& .\app\OpenRGB.exe --config .\config\module-71 --noautoconnect --loglevel 5 --device 0 --mode Static --color FF0000
+
+Exactly one configured endpoint,71, is re-identified before any color write.
+The CLI fills its8 colors before queuing mode/LED updates. It may send the same
+complete red frame twice (mode update and LED update); no animation loop.
+A frame:8160 color block24B,8020 control[0,1,0,0],8029=9,802F=1.
+No Save-to-Device,flash or calibration. Any error invalidates that instance;
+later queued updates must issue no bus traffic after an uncertain partial frame.
+Observe which physical DIMM changes. Do not assume71 means a particular slot.
+Expected: one module solid red, the other unchanged; FanControl still normal.
+Wrong color/no change/error means STOP and preserve logs. No blind retries.
+
+Stage3: same operation on the second RGB address
+----------------------------------------------
+Only after Stage2 has the expected result and authorization to continue:
+& .\app\OpenRGB.exe --config .\config\module-73 --noautoconnect --loglevel 5 --device 0 --mode Static --color FF0000
+
+Expected: second module becomes solid red,first remains red. Observe normal
+FanControl behavior for2minutes and compare PID/start time with preflight.
+That interval is an initial smoke test, not long-term stability proof.
+End the initial trial here. Green/blue, effects, persistence, startup loading
+and wider firmware support require separate work; do not expand this trial.
+
+Stopping and limits
+-------------------
+Close only the trial instance if it remains open. No automatic reboot, service
+restart, competing RGB app, retry or bus scan. Closing the process does not
+restore the previous effect: the last successfully applied volatile color may
+remain. Installed OpenRGB, its service, profiles and FanControl are unchanged.
+The tests reduce protocol/configuration mistakes; they cannot guarantee that a
+physical controller or kernel driver never hangs. The prior black-screen cause
+has not been proven. Hardware success and stability remain unverified until
+these authorized observations are actually recorded.

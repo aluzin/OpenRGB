@@ -26,3 +26,20 @@ Full OpenRGB compilation uses normal SDK/runtime/RTTI settings in CI.
 These tests do not prove physical hardware safety, color channel semantics of
 the vendor COM caller, or behavior of other applications ignoring the mutex.
 See Documentation/ENE6802-DDR5.txt for remaining hardware validation limits.
+
+Detector and RGB-wrapper integration (Linux CI, hardware/API test doubles):
+python3 tests/ene6802/integration/run.py
+Actual four production CPP files, real JSON/OpenRGB color types, fake Windows,
+fake bus and base UI services. ASan/UBSan.83 cases/1319 assertions plus7 detector
+mutations, including complete-configuration validation before any transport is
+created, default-disabled registration, cleanup, no color writes in constructor
+or destructor, invalid UI selections, independent modules and failure latch.
+The actual IsAnyDimmDetectorEnabled body is compiled verbatim in isolation;
+the complete DetectionManager, Qt UI and base update scheduler are not executed.
+
+Prepared-configuration verification (file/data operations only):
+python tests/ene6802/test_prepare_trial.py
+Five test groups: valid scopes, enabling each other known detector, missing
+DIMM gates, altered fingerprint/address scope, auto-profile/unlocked mistakes.
+prepare_trial.py generates immutable first-use configs from a saved Windows
+inventory plus source registrations. See Documentation/ENE6802-HARDWARE-TRIAL.txt.
