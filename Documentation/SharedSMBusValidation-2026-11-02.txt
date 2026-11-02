@@ -97,3 +97,29 @@ Production helper SHA256:
 Limits remain: local SYSTEM-created ACL lifecycle was NOT tested; the local
 execution token was nonadministrative. Hosted SYSTEM tests remain separate
 evidence. Actual physical SMBus transfers and freeze causality remain unproven.
+
+Local SYSTEM/user follow-up (2026-11-02 23:33 Minsk)
+---------------------------------------------------
+The previously pending local cross-identity helper ACL test now PASSES.
+An ordinary nonadmin process and a verified LocalSystem worker (S-1-5-18)
+used the actual production helper on two isolated test mutex names:
+- SYSTEM-created mutex: ordinary user opened MUTEX_ALL_ACCESS, opened through
+  the production helper, and acquired/released through the production guard.
+- Ordinary-user-created mutex: SYSTEM performed the same checks.
+Both orders passed on the local workstation while FanControl kept the same
+process/start time and remained responsive.
+
+A UAC-elevated orchestrator created one temporary SYSTEM scheduled task.
+The task was removed in finally, all test workers exited, and the isolated
+mutex objects disappeared after handle closure. No existing service/task was
+modified or restarted. No device calls, RAM access, bus scan or OpenRGB launch.
+
+The native DLL accepted only isolated Global\\OpenRGB.LocalValidation.<GUID>
+names and its hash was checked before loading. Production helper unchanged.
+DLL SHA256:
+33f516ee26e16d07f95617cda6f497aadf540dff61c1bf794b7737aac3e28338
+
+This establishes local cross-identity ACL behavior of the helper, not the full
+installed OpenRGB service lifecycle. Physical SMBus peripheral transfers remain
+untested because no safe non-RAM endpoint has been confirmed. No conclusion
+about the cause or resolution of whole-machine freezes follows from this test.
