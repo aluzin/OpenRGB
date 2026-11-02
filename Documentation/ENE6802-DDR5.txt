@@ -1,0 +1,85 @@
+Experimental ENE 6802 DDR5 Static profile
+=======================================
+
+This is an in-tree OpenRGB controller, not a plugin. It is separate from legacy
+ENESMBusController; existing controllers/detectors are unchanged. Default OFF.
+No claims of hardware validation. No vendor binary or decompiler dump included.
+
+Evidence and protocol
+---------------------
+Existing G.Skill 1.00.38 HAL log reports two devices on its controller 0:
+8-bit E2/E6, chip 6802, firmware EE D5 08 03 00, LED config [1,8,0,0,0].
+These are sample observations, not stable bus/address assignments or support
+for every module sold as G.Skill. UI uses ENE identity, not a brand-wide match.
+
+Static comparison of AacHal_x64 setter 1800124B0 and AacHal_x86 setter 10011600:
+effect colors 8160; control 8020=[0,1,0,0]; D5 Static brightness 8029=9;
+apply 802F=1. Legacy OpenRGB apply 80A0 must not be reused for this profile.
+HAL writers 180014D30 / 10013F30 use command03 SMBus block writes in chunks
+of24, command01 for one byte. CTIIO Intel routine128E0 reverses word bytes
+relative to the standard SMBus API; routine12B30 writes the count to DATA0,
+uses block FIFO and host command54 (SMBus block). No I2C block substitution.
+
+Initialization addresses only explicitly configured endpoints: chip F01C via
+word command82 (standard API result0268), firmware87FB via five byte reads81,
+config80A1 via five byte reads81. Register selection uses command00 word write.
+Unknown chips/firmware/configuration and any error are rejected. No generic
+scan, address remap, SPD access, temperature polling, flash save or calibration.
+No copied driver register pokes or reset routines.
+
+Color packing is [input byte0,byte2,byte1], matching the recovered HAL dispatcher
+and legacy OpenRGB R,B,G packing. End-to-end COM color naming is not independently
+proven from the vendor GUI. Primary red/green/blue must be checked when hardware
+testing is separately authorized. Unit tests verify permutation, not perception.
+
+Only Static with eight per-LED colors is exposed. Off can be represented by
+black Static. No unverified effects, persistence, dynamic update or Direct mode.
+Any I/O failure stops the frame, prevents later apply, and invalidates the
+controller until explicit re-identification. There is no automatic retry or
+byte-write fallback after an uncertain block result.
+
+Windows integration
+-------------------
+Currently restricted to synchronous PawnIO i801 / Intel PCI8086:7F23, exact
+configured bus name and subsystem identity. Other bus backends are rejected.
+The global shared mutex is held across each complete identification/frame.
+PawnIO raw xfer re-enters it on the same thread. The adapter deliberately does
+not enter the per-bus wrapper mutex while holding the global lock, avoiding
+inversion against callers that acquire bus wrapper then global mutex.
+This protects cooperating callers, not clients that ignore shared locking.
+
+Explicit configuration (example ONLY; never applied by build/tests)
+------------------------------------------------------------------
+The detector "ENE 6802 DDR5 (configured endpoints)" must be enabled manually.
+The legacy "ENE SMBus DRAM" detector must explicitly be false; otherwise this
+detector refuses all I/O. For isolated validation disable other RAM detectors
+as well. Shared SMBus access must remain enabled.
+
+ENE6802Devices:
+{
+  "enabled": true,
+  "devices": [
+    {"bus_name":"PawnIO SMBus i801 0", "address":113,
+     "pci_subsystem_vendor":4163, "pci_subsystem_device":35055},
+    {"bus_name":"PawnIO SMBus i801 0", "address":115,
+     "pci_subsystem_vendor":4163, "pci_subsystem_device":35055}
+  ]
+}
+
+Numbers above reflect the captured system only. The complete list is validated
+before I/O; invalid, duplicate or ambiguous entries are rejected. At most four
+explicit endpoints, allowed range70..76; no77 remapping address. No guessing of
+a bus when its identity changes. Enabling the detector DOES query the configured
+RAM RGB controller; disabled offline testing does not authorize doing so.
+
+Validation / upstream
+---------------------
+Offline protocol/adapter tests use actual source and fake transport; separate
+full application build is required. No local OpenRGB binary is executed by tests.
+Real hardware operation and installed-service lifecycle remain unvalidated.
+This is a draft candidate for a controlled, separately authorized hardware test,
+not a general DDR5 release. Stock ENE source files remain unchanged.
+
+OpenRGB CONTRIBUTING.md restricts AI-generated submissions and expects human
+understanding/manual vetting. Do not submit this as an upstream-ready MR without
+that review, hardware results and maintainers' agreement on integration design.

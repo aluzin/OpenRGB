@@ -1,0 +1,68 @@
+name: ENE6802 offline validation
+on:
+  push:
+    branches: [feat/ene6802-ddr5]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ene6802-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  protocol-tests:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Actual protocol and adapter with fake hardware only
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 exit /b 1
+          python tests/ene6802/run_tests.py --cl cl.exe --mutations
+          if errorlevel 1 exit /b 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ENE6802-offline-evidence
+          path: tests/ene6802/build/result.json
+          if-no-files-found: error
+
+  full-build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qt5compat
+          cache: true
+      - name: Install pinned jom from Qt
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'jom.zip'
+          Invoke-WebRequest 'https://download.qt.io/official_releases/jom/jom_1_1_4.zip' -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne 'd533c1ef49214229681e90196ed2094691e8c4a0a0bef0b2c901debcb562682b') { throw 'jom checksum mismatch' }
+          $dir = Join-Path $env:RUNNER_TEMP 'jom'
+          Expand-Archive -LiteralPath $zip -DestinationPath $dir
+          $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build complete OpenRGB without running it
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 exit /b 1
+          qmake OpenRGB.pro CONFIG-=debug_and_release CONFIG+=release
+          if errorlevel 1 exit /b 1
+          jom -j 4
+          if errorlevel 1 exit /b 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenRGB-ENE6802-build-only
+          path: release/OpenRGB.exe
+          if-no-files-found: error
