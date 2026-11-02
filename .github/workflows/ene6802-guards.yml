@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Actual detector and UI wrapper, fake OS and bus, ASan and UBSan
         run: python3 tests/ene6802/integration/run.py
+      - name: Isolated trial configuration cannot enable other detectors
+        run: python3 tests/ene6802/test_prepare_trial.py
       - uses: actions/upload-artifact@v4
         with:
           name: ENE6802-guard-evidence

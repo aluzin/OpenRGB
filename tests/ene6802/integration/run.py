@@ -20,7 +20,21 @@ flags = ['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-g', '-O1',
 names = ['ENE6802Controller.cpp', 'ENE6802Transport_Windows.cpp',
          'RGBController_ENE6802_Windows.cpp', 'ENE6802Detect_Windows.cpp']
 objects = []
-for path in [here / 'test.cpp'] + [source / name for name in names]:
+# Compile the actual SPD gate verbatim, without the rest of DetectionManager
+# (which contains real discovery). Never replace it with a Python reimplementation.
+manager = (root / 'DetectionManager.cpp').read_text()
+start = manager.index('bool DetectionManager::IsAnyDimmDetectorEnabled(')
+opening = manager.index('{', start)
+depth = 1
+end = opening + 1
+while depth:
+    if manager[end] == '{': depth += 1
+    if manager[end] == '}': depth -= 1
+    end += 1
+gate = build / 'spd_gate.cpp'
+gate.write_text('#include "DetectionManager.h"\n' + manager[start:end] + '\n')
+assert 'bus < i2c_buses.size() && IsAnyDimmDetectorEnabled(detector_settings)' in manager
+for path in [gate, here / 'test.cpp'] + [source / name for name in names]:
     obj = build / (path.stem + '.o')
     subprocess.run(flags + ['-c', str(path), '-o', str(obj)], check=True)
     objects.append(str(obj))

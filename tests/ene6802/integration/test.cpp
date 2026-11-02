@@ -272,8 +272,24 @@ static void FailureCleanup()
     no_mutex=true; DetectedControllers devices=DetectENE6802Controllers(buses); no_mutex=false;
     Check(devices.empty() && bus.trace.empty());
 }
+static void SpdGate()
+{
+    scenario="actual DetectionManager SPD gate"; cases++;
+    DetectionManager manager;
+    manager.i2c_dram_device_detectors={{"DIMM one"},{"DIMM two"}};
+    json settings={{"detectors",{{"DIMM one",false},{"DIMM two",false},
+                                {"ENE 6802 DDR5 (configured endpoints)",true}}}};
+    Check(!manager.IsAnyDimmDetectorEnabled(settings));
+    settings["detectors"]["DIMM one"]=true;
+    Check(manager.IsAnyDimmDetectorEnabled(settings));
+    settings["detectors"]["DIMM one"]=false;
+    settings["detectors"]["DIMM two"]=true;
+    Check(manager.IsAnyDimmDetectorEnabled(settings));
+    settings["detectors"]["DIMM two"]=false;
+    Check(!manager.IsAnyDimmDetectorEnabled(settings));
+}
 int main()
 {
-    ConfigurationGuards(); DeviceIntegration(); FailureCleanup();
+    ConfigurationGuards(); DeviceIntegration(); FailureCleanup(); SpdGate();
     std::printf("PASS: %u configuration/scenario cases, %u assertions; fake OS/bus only\n",cases,checks);
 }
