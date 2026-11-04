@@ -21,6 +21,15 @@ protected:
     ~ENE6802Transport() = default;
 };
 
+struct ENE6802Diagnostic
+{
+    const char* reason;
+    unsigned short reg;
+    int index;
+    int actual;
+    int expected;
+};
+
 class ENE6802Controller
 {
 public:
@@ -29,7 +38,10 @@ public:
     // Eight colors in OpenRGB's 0x00BBGGRR convention. No flash save or effects.
     bool SetStatic(const unsigned int* colors, unsigned int count);
     bool IsIdentified() const;
+    const ENE6802Diagnostic& GetDiagnostic() const { return diagnostic; }
 private:
+    bool Reject(const char* reason, unsigned short reg, int index, int actual, int expected);
+    ENE6802Diagnostic diagnostic = {"not-initialized", 0, -1, 0, 0};
     bool Select(unsigned short reg);
     bool Read(unsigned short reg, unsigned char* data, unsigned int size);
     bool Write(unsigned short reg, const unsigned char* data, unsigned char size);

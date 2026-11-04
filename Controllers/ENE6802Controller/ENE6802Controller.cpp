@@ -23,10 +23,17 @@ ENE6802Controller::ENE6802Controller(ENE6802Transport& transport, unsigned char 
 {
 }
 
+bool ENE6802Controller::Reject(const char* reason, unsigned short reg, int index, int actual, int expected)
+{
+    diagnostic = {reason, reg, index, actual, expected};
+    return false;
+}
+
 bool ENE6802Controller::Select(unsigned short reg)
 {
     unsigned short word = (unsigned short)((reg << 8) | (reg >> 8));
-    return transport.WriteWord(address, 0x00, word) == 0;
+    int result = transport.WriteWord(address, 0x00, word);
+    return result == 0 || Reject("selector-io", reg, -1, result, 0);
 }
 
 bool ENE6802Controller::Read(unsigned short reg, unsigned char* data, unsigned int size)
@@ -35,7 +42,7 @@ bool ENE6802Controller::Read(unsigned short reg, unsigned char* data, unsigned i
     for(unsigned int i = 0; i < size; i++)
     {
         int value = transport.ReadByte(address, 0x81);
-        if(value < 0 || value > 255) return false;
+        if(value < 0 || value > 255) return Reject("read-byte-io", reg, (int)i, value, -1);
         data[i] = (unsigned char)value;
     }
     return true;
@@ -44,12 +51,16 @@ bool ENE6802Controller::Read(unsigned short reg, unsigned char* data, unsigned i
 bool ENE6802Controller::Initialize()
 {
     identified = false;
+    diagnostic = {"not-initialized", 0, -1, 0, 0};
     // Only explicit 7-bit DRAM RGB endpoints. Never probe the remap address 77.
-    if(address < 0x70 || address > 0x76) return false;
+    if(address < 0x70 || address > 0x76) return Reject("invalid-address", 0, -1, address, -1);
     ENE6802Sequence sequence(transport);
-    if(!sequence.Ready() || !Select(0xF01C)) return false;
+    if(!sequence.Ready()) return Reject("sequence-lock", 0, -1, 0, 1);
+    if(!Select(0xF01C)) return false;
     // CTIIO returns DATA0 as high byte; standard SMBus returns it as low byte.
-    if(transport.ReadWord(address, 0x82) != 0x0268) return false;
+    int chip = transport.ReadWord(address, 0x82);
+    if(chip < 0 || chip > 65535) return Reject("read-word-io", 0xF01C, -1, chip, -1);
+    if(chip != 0x0268) return Reject("chip-mismatch", 0xF01C, -1, chip, 0x0268);
     unsigned char firmware[5] = {};
     unsigned char config[5] = {};
     const unsigned char expected_firmware[5] = {0xEE, 0xD5, 0x08, 0x03, 0x00};
@@ -57,13 +68,14 @@ bool ENE6802Controller::Initialize()
     if(!Read(0x87FB, firmware, 5)) return false;
     for(unsigned int i = 0; i < 5; i++)
     {
-        if(firmware[i] != expected_firmware[i]) return false;
+        if(firmware[i] != expected_firmware[i]) return Reject("firmware-mismatch", 0x87FB, (int)i, firmware[i], expected_firmware[i]);
     }
     if(!Read(0x80A1, config, 5)) return false;
     for(unsigned int i = 0; i < 5; i++)
     {
-        if(config[i] != expected_config[i]) return false;
+        if(config[i] != expected_config[i]) return Reject("config-mismatch", 0x80A1, (int)i, config[i], expected_config[i]);
     }
+    diagnostic = {"ok", 0, -1, 0, 0};
     identified = true;
     return true;
 }

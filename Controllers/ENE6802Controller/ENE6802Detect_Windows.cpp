@@ -82,7 +82,10 @@ DetectedControllers DetectENE6802Controllers(std::vector<i2c_smbus_interface*>& 
         }
         else
         {
-            LOG_ERROR("[ENE 6802] Configured endpoint rejected: identity, firmware, configuration or I/O mismatch");
+            const ENE6802Diagnostic& diagnostic = controller->GetDiagnostic();
+            LOG_ERROR("[ENE 6802] Endpoint 0x%02X rejected: %s; register=0x%04X index=%d actual=%d expected=%d",
+                      (unsigned int)selected_addresses[i], diagnostic.reason, (unsigned int)diagnostic.reg,
+                      diagnostic.index, diagnostic.actual, diagnostic.expected);
             delete controller;
             delete transport;
         }

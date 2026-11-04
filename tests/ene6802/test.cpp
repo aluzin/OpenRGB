@@ -5,6 +5,16 @@ struct Event { int type, address, command, value, size; unsigned char data[24]; 
 static int failures = 0;
 extern "C" int _purecall() { failures++; return 0; }
 static void Check(bool condition) { if(!condition) failures++; }
+static bool Equal(const char* a, const char* b)
+{
+    while(*a && *a == *b) { a++; b++; }
+    return *a == *b;
+}
+static void Diagnostic(const ENE6802Controller& device, const char* reason, int reg, int index, int actual, int expected)
+{
+    const ENE6802Diagnostic& d = device.GetDiagnostic();
+    Check(Equal(d.reason, reason) && d.reg == reg && d.index == index && d.actual == actual && d.expected == expected);
+}
 class Fake : public ENE6802Transport
 {
 public:
@@ -43,6 +53,7 @@ static void SuccessfulTrace(unsigned char address)
     Fake bus;
     ENE6802Controller device(bus,address);
     Check(device.Initialize());
+    Diagnostic(device, "ok", 0, -1, 0, 0);
     Check(bus.count == 14 && bus.begins == 1 && bus.ends == 1 && !bus.held);
     // Golden identification selector bytes taken from vendor branches.
     Check(bus.events[0].value == 0x1CF0 && bus.events[1].command == 0x82);
@@ -83,6 +94,7 @@ static void RejectIdentity()
         bus.chip = others[chip];
         ENE6802Controller device(bus,0x71);
         Check(!device.Initialize() && bus.count == 2 && bus.ends == 1);
+        Diagnostic(device, "chip-mismatch", 0xF01C, -1, others[chip], 0x0268);
         Check(!device.SetStatic(colors,8) && bus.count == 2);
     }
     for(int byte = 0; byte < 10; byte++)
@@ -90,6 +102,8 @@ static void RejectIdentity()
         Fake bus; bus.bytes[byte] ^= 1;
         ENE6802Controller device(bus,0x71);
         Check(!device.Initialize() && !device.IsIdentified() && !bus.held);
+        Diagnostic(device, byte < 5 ? "firmware-mismatch" : "config-mismatch",
+                   byte < 5 ? 0x87FB : 0x80A1, byte % 5, bus.bytes[byte], bus.bytes[byte] ^ 1);
         int count = bus.count;
         Check(!device.SetStatic(colors,8) && bus.count == count);
     }
@@ -99,6 +113,7 @@ static void RejectIdentity()
         Fake bus;
         ENE6802Controller device(bus,(unsigned char)address);
         Check(!device.Initialize() && bus.count == 0 && bus.begins == 0);
+        Diagnostic(device, "invalid-address", 0, -1, address, -1);
     }
 }
 
@@ -110,6 +125,10 @@ static void InjectFailures()
         Fake bus; bus.fail_at = failure;
         ENE6802Controller device(bus,0x71);
         Check(!device.Initialize() && bus.count == failure + 1 && bus.ends == 1 && !bus.held);
+        if(failure == 0 || failure == 2 || failure == 8)
+            Diagnostic(device, "selector-io", failure == 0 ? 0xF01C : failure == 2 ? 0x87FB : 0x80A1, -1, -1, 0);
+        else if(failure == 1) Diagnostic(device, "read-word-io", 0xF01C, -1, -1, -1);
+        else Diagnostic(device, "read-byte-io", failure < 8 ? 0x87FB : 0x80A1, failure < 8 ? failure - 3 : failure - 9, -1, -1);
         int count = bus.count;
         Check(!device.SetStatic(colors,8) && bus.count == count);
     }
@@ -125,6 +144,7 @@ static void InjectFailures()
     Fake bus; ENE6802Controller device(bus,0x71);
     bus.blocked = true;
     Check(!device.Initialize() && bus.count == 0 && bus.ends == 0);
+    Diagnostic(device, "sequence-lock", 0, -1, 0, 1);
     bus.blocked = false; Check(device.Initialize()); bus.ResetTrace();
     bus.blocked = true;
     Check(!device.SetStatic(colors,8) && bus.count == 0 && bus.ends == 1);
