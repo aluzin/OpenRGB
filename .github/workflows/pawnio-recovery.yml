@@ -1,0 +1,51 @@
+name: PawnIO recovery candidate - offline only
+on:
+  push:
+    branches: [research/pawnio-startup-recovery]
+    paths:
+      - 'research/pawnio-startup-recovery/**'
+      - '.github/workflows/pawnio-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  model-tests:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fake registers and mutation tests, no hardware imports
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 exit /b 1
+          python research/pawnio-startup-recovery/run_tests.py --cl cl.exe
+          if errorlevel 1 exit /b 1
+  pawn-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: oraclelinux:9
+    steps:
+      - name: Install build prerequisites
+        run: dnf install -yq git python3
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: namazso/PawnIO.Modules
+          ref: 52a7e536dff3e53c96917a28caac5e0fa6510696
+          path: upstream-pawnio
+      - name: Install the upstream pinned Pawn compiler
+        run: dnf install -yq upstream-pawnio/_pawn/pawn-4.1.7152-1.el9.x86_64.rpm
+      - name: Compile candidate without loading it
+        run: python3 research/pawnio-startup-recovery/build_module.py --upstream upstream-pawnio
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PawnIO-review-candidate-NOT-FOR-INSTALLATION
+          path: |
+            research/pawnio-startup-recovery/build/pawn/candidate.patch
+            research/pawnio-startup-recovery/build/pawn/compiler.txt
+            research/pawnio-startup-recovery/build/pawn/result.json
+            research/pawnio-startup-recovery/build/pawn/SmbusI801.amx
+          if-no-files-found: error
