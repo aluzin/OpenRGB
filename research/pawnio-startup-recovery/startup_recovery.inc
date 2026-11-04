@@ -41,6 +41,7 @@ NTSTATUS:i801_startup_recovery(ack, &result, &last_hststs)
 
     i801_recovery_attempted = true;
     new deadline = get_tick_count() + I801_RECOVERY_QUIET_MS;
+    new bool:waiting = true;
     do {
         status = virtual_read_byte(SMBHSTSTS, last_hststs);
         if (!NT_SUCCESS(status))
@@ -59,10 +60,10 @@ NTSTATUS:i801_startup_recovery(ack, &result, &last_hststs)
         // BYTE_DONE, inaccessible MMIO (0xFF), or changing status -> refuse.
         if (last_hststs != SMBHSTSTS_INUSE_STS)
             return STATUS_DEVICE_BUSY;
-        if (get_tick_count() >= deadline)
-            break;
-        microsleep(1000);
-    } while (true);
+        waiting = get_tick_count() < deadline;
+        if (waiting)
+            microsleep(1000);
+    } while (waiting);
 
     // Authorized forced semaphore clear, never a controller KILL/reset.
     status = virtual_write_byte(SMBHSTSTS, SMBHSTSTS_INUSE_STS);

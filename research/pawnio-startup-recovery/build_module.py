@@ -3,6 +3,7 @@ import argparse
 import difflib
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -48,6 +49,8 @@ def main():
     print(log)
     if compiled.returncode:
         raise RuntimeError('Pawn compiler failed: ' + str(compiled.returncode))
+    if re.search(r'\bwarning [0-9]+:', log):
+        raise RuntimeError('Review and resolve Pawn compiler warnings')
     output = build / 'SmbusI801.amx'
     data = output.read_bytes()
     if not data:
