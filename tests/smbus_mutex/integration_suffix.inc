@@ -20,6 +20,13 @@ extern "C" int main()
         // Reset counters to the separate, still-owned bus handle before teardown.
         Reset();
     }
+    Reset(); closed = 0; transport_result = (HRESULT)0x8007001F;
+    {
+        i2c_smbus_pawnio failed(&device_token, "test", 0);
+        Check(failed.i2c_smbus_xfer(0x55, 1, 0x81, 1, nullptr) == -1);
+        Check(transfer_errors == 1 && logged_hresult == 0x8007001FUL);
+        Check(transfers == 1 && released == 1);
+    }
     Reset(); closed = 0; transport_result = -1;
     i2c_smbus_pawnio bus(&device_token, "test", 0);
     Check(bus.i2c_smbus_xfer(0x55, 1, 0x81, 1, nullptr) == -1);

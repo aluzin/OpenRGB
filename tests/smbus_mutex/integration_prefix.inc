@@ -4,7 +4,17 @@
 #include "test.cpp"
 #undef main
 #define NULL 0
-#define LOG_ERROR(...) ((void)0)
+static unsigned long logged_hresult;
+static int transfer_errors;
+static void TestLogError(const char*) {}
+static void TestLogError(const char*, DWORD) {}
+static void TestLogError(const char*, unsigned int address, unsigned int command, int direction, int protocol, unsigned long result)
+{
+    Check(address == 0x55 && command == 0x81 && direction == 1 && protocol == 1);
+    logged_hresult = result;
+    transfer_errors++;
+}
+#define LOG_ERROR(...) TestLogError(__VA_ARGS__)
 #define private public
 #include "../../i2c_smbus/Windows/i2c_smbus_pawnio.h"
 #undef private

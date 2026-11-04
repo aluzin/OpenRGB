@@ -247,6 +247,8 @@ s32 i2c_smbus_pawnio::i2c_smbus_xfer(u8 addr, char read_write, u8 command, int s
     \*-----------------------------------------------------*/
     if(status != 0)
     {
+        LOG_ERROR("[PawnIO] SMBus transfer failed: address=0x%02X command=0x%02X direction=%d protocol=%d HRESULT=0x%08lX",
+                  (unsigned int)addr, (unsigned int)command, (int)read_write, size, (unsigned long)status);
         status = -1;
     }
 
